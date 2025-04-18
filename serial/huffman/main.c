@@ -7,18 +7,19 @@
 
 #define MAX_SIZE 1920
 #define MAX_CODE_LENGTH 256
-#define SEPARADOR 0x01
 
 typedef struct {
     char character;
     char code[MAX_CODE_LENGTH];
 } HuffmanCode;
 
-// Crear nodos desde el diccionario
 Node** crear_nodos_desde_diccionario(Dictionary diccionario[], int tamaño) {
     Node** nodos = malloc(tamaño * sizeof(Node*));
+    if (!nodos) return NULL;
+
     for (int i = 0; i < tamaño; i++) {
         Node* nuevo = malloc(sizeof(Node));
+        if (!nuevo) return NULL;
         nuevo->character = diccionario[i].key;
         nuevo->frequency = diccionario[i].value;
         nuevo->left = NULL;
@@ -26,50 +27,6 @@ Node** crear_nodos_desde_diccionario(Dictionary diccionario[], int tamaño) {
         nodos[i] = nuevo;
     }
     return nodos;
-}
-
-// Leer todos los archivos .txt del directorio
-char* leer_archivos_txt(const char* carpeta) {
-    DIR* dir = opendir(carpeta);
-    if (dir == NULL) {
-        printf("No se pudo abrir el directorio.\n");
-        return NULL;
-    }
-
-    struct dirent* archivo;
-    char* contenido_total = malloc(1);
-    contenido_total[0] = '\0';
-    int longitud_total = 0;
-
-    while ((archivo = readdir(dir)) != NULL) {
-        if (strstr(archivo->d_name, ".txt") == NULL) continue;
-
-        char ruta[512];
-        snprintf(ruta, sizeof(ruta), "%s/%s", carpeta, archivo->d_name);
-
-        FILE* f = fopen(ruta, "r");
-        if (f == NULL) continue;
-
-        fseek(f, 0, SEEK_END);
-        int longitud = ftell(f);
-        fseek(f, 0, SEEK_SET);
-
-        char* buffer = malloc(longitud + 2);
-        fread(buffer, 1, longitud, f);
-        fclose(f);
-
-        buffer[longitud] = SEPARADOR;
-        buffer[longitud + 1] = '\0';
-
-        contenido_total = realloc(contenido_total, longitud_total + longitud + 2);
-        strcat(contenido_total, buffer);
-        longitud_total += longitud + 1;
-
-        free(buffer);
-    }
-
-    closedir(dir);
-    return contenido_total;
 }
 
 int comparar_nodos(const void* a, const void* b) {
@@ -86,6 +43,8 @@ Node* construir_arbol_huffman(Node** nodos, int cantidad) {
         Node* derecha = nodos[1];
 
         Node* nuevo = malloc(sizeof(Node));
+        if (!nuevo) return NULL;
+
         nuevo->character = '\0';
         nuevo->frequency = izquierda->frequency + derecha->frequency;
         nuevo->left = izquierda;
@@ -97,24 +56,6 @@ Node* construir_arbol_huffman(Node** nodos, int cantidad) {
     }
 
     return nodos[0];
-}
-
-void imprimir_arbol(Node* raiz, int nivel) {
-    if (raiz == NULL) return;
-    for (int i = 0; i < nivel; i++) printf("  ");
-    if (raiz->character != '\0')
-        printf("'%c': %d\n", raiz->character, raiz->frequency);
-    else
-        printf("[Interno]: %d\n", raiz->frequency);
-    imprimir_arbol(raiz->left, nivel + 1);
-    imprimir_arbol(raiz->right, nivel + 1);
-}
-
-void liberar_arbol(Node* nodo) {
-    if (!nodo) return;
-    liberar_arbol(nodo->left);
-    liberar_arbol(nodo->right);
-    free(nodo);
 }
 
 void generar_codigos(Node* raiz, char* codigo_actual, int profundidad, HuffmanCode* tabla, int* indice) {
@@ -130,12 +71,10 @@ void generar_codigos(Node* raiz, char* codigo_actual, int profundidad, HuffmanCo
 
     codigo_actual[profundidad] = '0';
     generar_codigos(raiz->left, codigo_actual, profundidad + 1, tabla, indice);
-
     codigo_actual[profundidad] = '1';
     generar_codigos(raiz->right, codigo_actual, profundidad + 1, tabla, indice);
 }
 
-// Buscar código de un carácter
 const char* obtener_codigo(HuffmanCode* tabla, int total, char caracter) {
     for (int i = 0; i < total; i++) {
         if (tabla[i].character == caracter) {
@@ -145,69 +84,162 @@ const char* obtener_codigo(HuffmanCode* tabla, int total, char caracter) {
     return NULL;
 }
 
-// Escribir archivo binario codificado
-void escribir_bits_en_archivo(const char* nombre_archivo, char* texto, HuffmanCode* tabla, int total) {
-    FILE* f = fopen(nombre_archivo, "wb");
+void liberar_arbol(Node* nodo) {
+    if (!nodo) return;
+    liberar_arbol(nodo->left);
+    liberar_arbol(nodo->right);
+    free(nodo);
+}
+
+void comprimir_archivo(FILE* salida, const char* ruta_completa, const char* nombre_archivo) {
+    FILE* f = fopen(ruta_completa, "r");
     if (!f) {
-        printf("No se pudo abrir el archivo binario.\n");
+        printf("No se pudo abrir %s\n", ruta_completa);
         return;
     }
 
-    unsigned char buffer = 0;
-    int bits_llenos = 0;
+    fseek(f, 0, SEEK_END);
+    long tam = ftell(f);
+    fseek(f, 0, SEEK_SET);
 
-    for (int i = 0; texto[i] != '\0'; i++) {
-        const char* codigo = obtener_codigo(tabla, total, texto[i]);
-        if (!codigo) continue;
-
-        for (int j = 0; codigo[j] != '\0'; j++) {
-            buffer <<= 1;
-            if (codigo[j] == '1') buffer |= 1;
-            bits_llenos++;
-
-            if (bits_llenos == 8) {
-                fwrite(&buffer, 1, 1, f);
-                bits_llenos = 0;
-                buffer = 0;
-            }
-        }
+    if (tam <= 0) {
+        printf("Archivo vacío: %s — se omite\n", nombre_archivo);
+        fclose(f);
+        return;
     }
 
-    if (bits_llenos > 0) {
-        buffer <<= (8 - bits_llenos);
-        fwrite(&buffer, 1, 1, f);
+    char* contenido = malloc(tam + 1);
+    if (!contenido) {
+        printf("Error asignando memoria para %s\n", nombre_archivo);
+        fclose(f);
+        return;
     }
 
+    fread(contenido, 1, tam, f);
+    contenido[tam] = '\0';
     fclose(f);
-    printf("Archivo binario comprimido creado: %s\n", nombre_archivo);
-}
-
-// MAIN
-int main() {
-    char* contenido = leer_archivos_txt("books");
-    if (contenido == NULL) return 1;
 
     Dictionary diccionario[MAX_SIZE];
-    int tam = 0;
-
+    int tam_dic = 0;
     for (int i = 0; contenido[i] != '\0'; i++) {
-        put_2_dictionary(diccionario, &tam, contenido[i]);
+        put_2_dictionary(diccionario, &tam_dic, contenido[i]);
     }
 
-    Node** nodos = crear_nodos_desde_diccionario(diccionario, tam);
-    Node* raiz = construir_arbol_huffman(nodos, tam);
+    if (tam_dic == 0) {
+        printf("No se pudo construir diccionario para %s\n", nombre_archivo);
+        free(contenido);
+        return;
+    }
+
+    Node** nodos = crear_nodos_desde_diccionario(diccionario, tam_dic);
+    Node* raiz = construir_arbol_huffman(nodos, tam_dic);
 
     HuffmanCode tabla_codigos[MAX_SIZE];
     int total_codigos = 0;
     char codigo[MAX_CODE_LENGTH];
-
     generar_codigos(raiz, codigo, 0, tabla_codigos, &total_codigos);
 
-    escribir_bits_en_archivo("comprimido.bin", contenido, tabla_codigos, total_codigos);
+    unsigned char len = strlen(nombre_archivo);
+    if (len > 255) len = 255;
+    fwrite(&len, 1, 1, salida);
+    fwrite(nombre_archivo, 1, len, salida);
 
-    free(nodos);
+    unsigned int total_bits = 0;
+    for (int i = 0; contenido[i] != '\0'; i++) {
+        const char* cod = obtener_codigo(tabla_codigos, total_codigos, contenido[i]);
+        if (cod) total_bits += strlen(cod);
+    }
+    fwrite(&total_bits, sizeof(unsigned int), 1, salida);
+
+    fwrite(&total_codigos, 1, 1, salida);
+    for (int i = 0; i < total_codigos; i++) {
+        unsigned char largo = strlen(tabla_codigos[i].code);
+        fwrite(&tabla_codigos[i].character, 1, 1, salida);
+        fwrite(&largo, 1, 1, salida);
+
+        unsigned char buffer = 0;
+        int bits = 0;
+        for (int j = 0; j < largo; j++) {
+            buffer <<= 1;
+            if (tabla_codigos[i].code[j] == '1') buffer |= 1;
+            bits++;
+            if (bits == 8) {
+                fwrite(&buffer, 1, 1, salida);
+                buffer = 0;
+                bits = 0;
+            }
+        }
+        if (bits > 0) {
+            buffer <<= (8 - bits);
+            fwrite(&buffer, 1, 1, salida);
+        }
+    }
+
+    unsigned char buffer = 0;
+    int llenos = 0;
+    for (int i = 0; contenido[i] != '\0'; i++) {
+        const char* cod = obtener_codigo(tabla_codigos, total_codigos, contenido[i]);
+        if (!cod) continue;
+        for (int j = 0; cod[j] != '\0'; j++) {
+            buffer <<= 1;
+            if (cod[j] == '1') buffer |= 1;
+            llenos++;
+            if (llenos == 8) {
+                fwrite(&buffer, 1, 1, salida);
+                buffer = 0;
+                llenos = 0;
+            }
+        }
+    }
+    if (llenos > 0) {
+        buffer <<= (8 - llenos);
+        fwrite(&buffer, 1, 1, salida);
+    }
+
+    printf("Archivo comprimido: %s (%u bits)\n", nombre_archivo, total_bits);
+
     free(contenido);
+    free(nodos);
     liberar_arbol(raiz);
+}
 
+int main() {
+    DIR* dir = opendir("books");
+    if (!dir) {
+        printf("No se pudo abrir el directorio books/\n");
+        return 1;
+    }
+
+    FILE* salida = fopen("comprimido.bin", "wb");
+    if (!salida) {
+        printf("No se pudo crear comprimido.bin\n");
+        closedir(dir);
+        return 1;
+    }
+
+    struct dirent* archivo;
+    int cantidad = 0;
+
+    while ((archivo = readdir(dir)) != NULL) {
+        if (archivo->d_name && strstr(archivo->d_name, ".txt")) {
+            cantidad++;
+        }
+    }
+
+    rewinddir(dir);
+    fwrite(&cantidad, 1, 1, salida);
+
+    while ((archivo = readdir(dir)) != NULL) {
+        if (archivo->d_name && strstr(archivo->d_name, ".txt")) {
+            char ruta[512];
+            snprintf(ruta, sizeof(ruta), "books/%s", archivo->d_name);
+            comprimir_archivo(salida, ruta, archivo->d_name);
+        }
+    }
+
+    fclose(salida);
+    closedir(dir);
+
+    printf("Compresión completada. Archivo generado: comprimido.bin\n");
     return 0;
 }
