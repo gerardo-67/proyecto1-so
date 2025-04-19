@@ -58,7 +58,7 @@ Node* construir_arbol_huffman(Node** nodos, int cantidad) {
     return nodos[0];
 }
 
-void generar_codigos(Node* raiz, char* codigo_actual, int profundidad, HuffmanCode* tabla, int* indice) {
+void generar_codigos_aux(Node* raiz, char* codigo_actual, int profundidad, HuffmanCode* tabla, int* indice) {
     if (!raiz) return;
 
     if (!raiz->left && !raiz->right) {
@@ -70,10 +70,17 @@ void generar_codigos(Node* raiz, char* codigo_actual, int profundidad, HuffmanCo
     }
 
     codigo_actual[profundidad] = '0';
-    generar_codigos(raiz->left, codigo_actual, profundidad + 1, tabla, indice);
+    generar_codigos_aux(raiz->left, codigo_actual, profundidad + 1, tabla, indice);
+
     codigo_actual[profundidad] = '1';
-    generar_codigos(raiz->right, codigo_actual, profundidad + 1, tabla, indice);
+    generar_codigos_aux(raiz->right, codigo_actual, profundidad + 1, tabla, indice);
 }
+
+void generar_codigos(Node* raiz, HuffmanCode* tabla, int* indice) {
+    char codigo_actual[MAX_CODE_LENGTH];
+    generar_codigos_aux(raiz, codigo_actual, 0, tabla, indice);
+}
+
 
 const char* obtener_codigo(HuffmanCode* tabla, int total, char caracter) {
     for (int i = 0; i < total; i++) {
@@ -136,8 +143,7 @@ void comprimir_archivo(FILE* salida, const char* ruta_completa, const char* nomb
 
     HuffmanCode tabla_codigos[MAX_SIZE];
     int total_codigos = 0;
-    char codigo[MAX_CODE_LENGTH];
-    generar_codigos(raiz, codigo, 0, tabla_codigos, &total_codigos);
+    generar_codigos(raiz, tabla_codigos, &total_codigos);
 
     unsigned char len = strlen(nombre_archivo);
     if (len > 255) len = 255;
