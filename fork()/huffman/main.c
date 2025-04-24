@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
-#include <pthread.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include "node.h"
@@ -11,7 +10,6 @@
 #define MAX_SIZE 1920
 #define MAX_CODE_LENGTH 256
 
-pthread_mutex_t mutex;
 
 typedef struct {
     char character;
@@ -163,7 +161,7 @@ char* comprimir_archivo(FILE* salida, const char* ruta_completa, const char* nom
     generar_codigos(raiz, tabla_codigos, &total_codigos);
 
     // Buffer para almacenar los datos comprimidos
-    size_t buffer_size = 1024 * 1024; // 1 MB
+    size_t buffer_size = (1024 * 1024)*10; // 10 MB
     char* buffer = malloc(buffer_size);
     if (!buffer) {
         printf("Error asignando memoria para el buffer\n");
@@ -290,7 +288,6 @@ int main() {
     printf("Iniciando compresión...\n");
     fflush(stdout);
     
-    pthread_mutex_init(&mutex, NULL);
     DIR* dir = opendir("books");
     if (!dir) {
         printf("No se pudo abrir el directorio books/\n");
@@ -409,7 +406,6 @@ int main() {
     fclose(salida);
     closedir(dir);
 
-    pthread_mutex_destroy(&mutex);
     printf("Compresión completada. Archivo generado: comprimido.bin\n");
     return 0;
 }

@@ -161,7 +161,7 @@ void* comprimir_archivo(void* arg) {
     generar_codigos(raiz, tabla_codigos, &total_codigos);
 
     // Buffer para almacenar los datos
-    size_t buffer_size = 1024 * 1024; // 1 MB
+    size_t buffer_size = (1024 * 1024)*10; // 1 MB
     char* buffer = malloc(buffer_size);
     if (!buffer) {
         printf("Error asignando memoria para el buffer\n");
@@ -329,6 +329,7 @@ int main() {
             char* nombre = strdup(archivo->d_name);
             char* ruta_completa = malloc(strlen("books/") + strlen(nombre) + 1);
             
+            // Si no se pudo asignar memoria para la ruta completa o el nombre
             if (!nombre || !ruta_completa) {
                 printf("Error asignando memoria para rutas\n");
                 if (nombre) free(nombre);

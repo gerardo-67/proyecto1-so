@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #define MAX_CODIGOS 256
 #define MAX_CODE_LENGTH 256
@@ -68,9 +70,17 @@ void decodificar_archivo(FILE* f) {
     fread(nombre, 1, nombre_len, f);
     nombre[nombre_len] = '\0';
 
-    FILE* decompressed_file = fopen(nombre, "w");
+    // Crear el directorio "books" si no existe
+    struct stat st = {0};
+    if (stat("books", &st) == -1) {
+        mkdir("books", 0755);
+    }
+    // Crear el archivo de salida en el directorio "books"
+    char ruta_salida[512];
+    snprintf(ruta_salida, sizeof(ruta_salida), "books/%s", nombre);
+    FILE* decompressed_file = fopen(ruta_salida, "w");
     if (!decompressed_file) {
-        printf("No se pudo crear %s\n", nombre);
+        printf("No se pudo crear %s\n", ruta_salida);
         return;
     }
 
