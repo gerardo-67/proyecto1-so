@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 
 #define MAX_CODIGOS 256
 #define MAX_CODE_LENGTH 256
@@ -205,6 +206,10 @@ void* decodificar_archivo(FILE* archivo_entrada, long posicion_inicio, int indic
 
 
 int main() {
+
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+
     FILE* f = fopen("comprimido.bin", "rb");
     if (!f) {
         printf("No se pudo abrir comprimido.bin\n");
@@ -245,5 +250,11 @@ int main() {
     fclose(f);
     
     printf("Descompresión completada con éxito.\n");
+
+    gettimeofday(&end, NULL);
+    double time_spent = (end.tv_sec - start.tv_sec) + 
+                        (end.tv_usec - start.tv_usec) / 1000000.0;
+                        
+    printf("Tiempo total: %f segundos\n", time_spent);
     return 0;
 }

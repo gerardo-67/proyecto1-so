@@ -3,6 +3,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <pthread.h>
+#include <sys/time.h>
 #include "node.h"
 #include "dictionary.h"
 
@@ -253,6 +254,10 @@ void* comprimir_archivo(void* arg) {
     liberar_arbol(raiz);
 }
 int main() {
+
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+
     printf("Iniciando compresión...\n");
     fflush(stdout);
     
@@ -418,5 +423,11 @@ int main() {
 
     pthread_mutex_destroy(&mutex);
     printf("Compresión completada. Archivo generado: comprimido.bin\n");
+
+    gettimeofday(&end, NULL);
+    double time_spent = (end.tv_sec - start.tv_sec) + 
+                        (end.tv_usec - start.tv_usec) / 1000000.0;
+    printf("Tiempo total de compresión: %.2f segundos\n", time_spent);
+
     return 0;
 }

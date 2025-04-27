@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <sys/time.h>
 #include "node.h"
 #include "dictionary.h"
 
@@ -210,6 +211,10 @@ void comprimir_archivo(FILE* salida, const char* ruta_completa, const char* nomb
 }
 
 int main() {
+
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+
     DIR* dir = opendir("books");
     if (!dir) {
         printf("No se pudo abrir el directorio books/\n");
@@ -247,5 +252,11 @@ int main() {
     closedir(dir);
 
     printf("Compresión completada. Archivo generado: comprimido.bin\n");
+    
+    gettimeofday(&end, NULL);
+    double time_spent = (end.tv_sec - start.tv_sec) + 
+                        (end.tv_usec - start.tv_usec) / 1000000.0;
+    printf("Tiempo total de compresión: %.2f segundos\n", time_spent);
+
     return 0;
 }
